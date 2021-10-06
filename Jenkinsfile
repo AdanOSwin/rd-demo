@@ -4,8 +4,8 @@ pipeline {
         stage('First stage') {
             steps {
                 echo "First stage"
-                sh 'terraform plan -out=demo.plan'
-                sh 'terraform apply demo.plan'
+                //sh 'terraform plan -out=demo.plan'
+                //sh 'terraform apply demo.plan'
             }
         }
     }
