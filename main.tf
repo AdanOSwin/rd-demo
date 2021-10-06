@@ -151,6 +151,94 @@ module "alb" {
     Environment = "Test"
   }
 }
+
+resource "aws_iam_service_linked_role" "autoscaling" {
+
+  aws_service_name = "autoscaling.amazonaws.com"
+  description      = "A service linked role for autoscaling"
+  custom_suffix    = "demo-2222"
+  
+  # Sometimes good sleep is required to have some IAM resources created before they can be used
+  provisioner "local-exec" {
+    command = "sleep 10"
+  }
+
+  #provisioner "local-exec" {
+  #  command = "start-sleep 10"
+  #  interpreter = ["PowerShell", "-Command"]
+  #}
+}
+
+
+
+resource "aws_iam_instance_profile" "ssm" {
+
+  name = "demo-ssm-cloudwatch"
+
+  role = aws_iam_role.ssm.name
+
+  tags = {
+    Owner       = "user"
+    Environment = "dev"
+  }
+}
+
+resource "aws_iam_role" "ssm" {
+  name = "demo-role"
+  tags = {
+    Owner       = "user"
+    Environment = "dev"
+  }
+
+
+
+  assume_role_policy = <<-EOT
+  {
+
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Action": "sts:AssumeRole",
+        "Principal": {
+          "Service": "ec2.amazonaws.com"
+        },
+        "Effect": "Allow",
+        "Sid": ""
+      }
+    ]
+  }
+  EOT
+}
+
+# Launch template webserver
+
+/*module "lt_webserver" {
+  source = "terraform-aws-modules/autoscaling/aws"
+
+  # Autoscaling group
+  name = "lt_webserver"
+
+  vpc_zone_identifier = module.vpc.private_subnets
+  min_size            = 2
+  max_size            = 3
+  desired_capacity    = 2
+  service_linked_role_arn   = aws_iam_service_linked_role.autoscaling.arn
+
+
+
+  # Launch template
+  use_lt    = true
+  create_lt = true
+
+  image_id      = data.aws_ami.ubuntu_server.id
+  instance_type = "t2.micro"
+  user_data_base64  = base64encode(local.user_data)
+
+  security_groups = [module.frontend_asg_sg.security_group_id]
+  iam_instance_profile_arn = aws_iam_instance_profile.ssm.arn
+  target_group_arns = module.alb.target_group_arns
+
+}*/
  
 module "asg" {
   source  = "terraform-aws-modules/autoscaling/aws"
@@ -173,6 +261,8 @@ module "asg" {
     }
     triggers = ["tag"]
   }
+
+  enable_monitoring = true
  
   # Launch template
   use_lt    = true
@@ -187,7 +277,9 @@ module "asg" {
       security_groups       = module.security-group-app.security_group_id
     }
   ]*/
- 
+
+  iam_instance_profile_arn = aws_iam_instance_profile.ssm.arn
+  service_linked_role_arn   = aws_iam_service_linked_role.autoscaling.arn
   target_group_arns=module.alb.target_group_arns
 }
 
@@ -216,6 +308,7 @@ module "asg-db" {
     ##DB launch template
     use_lt = true
     launch_template = "db-template"
+
 }
 
 resource "aws_sns_topic" "user_updates" {
@@ -237,11 +330,15 @@ module "metric_alarm_scale_out" {
   period              = 60
   unit                = "Count"
 
-  namespace   = "MyApplication"
+  namespace   = "AWS/EC2"
 
-  metric_name = "CPU Maxout"
+  metric_name = "CPUUtilization"
 
-  statistic   = "Maximum"
+  statistic   = "Average"
+
+  dimensions = {
+      AutoscalingGroupName = module.asg.autoscaling_group_name
+  }
 
   alarm_actions = [aws_sns_topic.user_updates.arn, aws_autoscaling_policy.scale-out-policy.arn]
 
@@ -263,9 +360,15 @@ module "metric_alarm_scale_in" {
   unit                = "Count"
 
 
-  namespace   = "MyApplication"
-  metric_name = "CPU Minimum"
-  statistic   = "Minimum"
+  namespace   = "AWS/EC2"
+
+  metric_name = "CPUUtilization"
+
+  statistic   = "Average"
+
+  dimensions = {
+      AutoscalingGroupName = module.asg.autoscaling_group_name
+  }
 
   alarm_actions = [aws_sns_topic.user_updates.arn, aws_autoscaling_policy.scale-in-policy.arn]
 

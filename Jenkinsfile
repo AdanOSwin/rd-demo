@@ -3,16 +3,27 @@ pipeline {
     stages {
         stage('First stage') {
             steps {
-                echo "First stageeeee"
+                sh "terraform format"
                 //sh 'terraform plan -out=demo.plan'
                 //sh 'terraform apply demo.plan'hhddddd
             }
         }
         stage('second stage') {
             steps {
-                echo "Second stage"
-                echo "Workinggggg"
+                sh "terraform validate"
+            }
+        }
+        stage('third stage') {
+            steps {
+                sh 'terraform plan -out=demo.plan'
+            }
+        }
+        stage('Fourth stage') {
+            steps {
+                sh "terraform apply demo.plan"
             }
         }
     }
 }
+
+//terraform format: para acomodar codigo
