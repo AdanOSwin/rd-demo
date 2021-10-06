@@ -266,7 +266,7 @@ module "asg" {
  
   # Launch template
   use_lt    = true
-  launch_template = "demo-template-2-ultimate"
+  launch_template = "template-demo-asdf"
   #update_default_version = true
 
   /*network_interfaces = [
