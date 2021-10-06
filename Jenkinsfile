@@ -8,5 +8,11 @@ pipeline {
                 //sh 'terraform apply demo.plan'hhddddd
             }
         }
+        stage('second stage') {
+            steps {
+                echo "Second stage"
+                echo "Working"
+            }
+        }
     }
 }
