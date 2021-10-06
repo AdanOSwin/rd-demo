@@ -218,23 +218,49 @@ resource "aws_iam_role" "ssm" {
   # Autoscaling group
   name = "lt_webserver"
 
-  vpc_zone_identifier = module.vpc.private_subnets
+  vpc_zone_identifier = module.vpc-demo.private_subnets
   min_size            = 2
   max_size            = 3
   desired_capacity    = 2
   service_linked_role_arn   = aws_iam_service_linked_role.autoscaling.arn
 
 
+  # Launch template
+  use_lt    = true
+  create_lt = true
+
+  image_id      = "ami-0724aae182815ee48"
+  instance_type = "t2.micro"
+  #user_data_base64  = base64encode(local.user_data)
+
+  security_groups = [module.security-group-app.security_group_id]
+  iam_instance_profile_arn = aws_iam_instance_profile.ssm.arn
+  target_group_arns = module.alb.target_group_arns
+
+}*/
+
+/*module "lt_db" {
+  source = "terraform-aws-modules/autoscaling/aws"
+
+  # Autoscaling group
+  name = "lt_webserver"
+
+  vpc_zone_identifier = module.vpc-demo.private_subnets
+  min_size            = 2
+  max_size            = 3
+  desired_capacity    = 2
+  service_linked_role_arn   = aws_iam_service_linked_role.autoscaling.arn
+
 
   # Launch template
   use_lt    = true
   create_lt = true
 
-  image_id      = data.aws_ami.ubuntu_server.id
+  image_id      = "ami-094ab50c842d05719"
   instance_type = "t2.micro"
-  user_data_base64  = base64encode(local.user_data)
+  #user_data_base64  = base64encode(local.user_data)
 
-  security_groups = [module.frontend_asg_sg.security_group_id]
+  security_groups = [module.security_group_db.security_group_id]
   iam_instance_profile_arn = aws_iam_instance_profile.ssm.arn
   target_group_arns = module.alb.target_group_arns
 
@@ -261,27 +287,73 @@ module "asg" {
     }
     triggers = ["tag"]
   }
-
-  enable_monitoring = true
  
-  # Launch template
-  use_lt    = true
-  launch_template = "template-demo-asdf"
-  #update_default_version = true
-
-  /*network_interfaces = [
-    {
-      delete_on_termination = true
-      description           = "eth0"
-      device_index          = 0
-      security_groups       = module.security-group-app.security_group_id
-    }
-  ]*/
-
   iam_instance_profile_arn = aws_iam_instance_profile.ssm.arn
   service_linked_role_arn   = aws_iam_service_linked_role.autoscaling.arn
   target_group_arns=module.alb.target_group_arns
+
+  # Launch template
+  lt_name                = "lt-demo"
+  description            = "Launch template example"
+  update_default_version = true
+
+  use_lt    = true
+  create_lt = true
+
+  image_id          = "ami-0724aae182815ee48"
+  instance_type     = "t3.micro"
+  ebs_optimized     = true
+  enable_monitoring = true
+
+
+
+
+
+
+  metadata_options = {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 32
+  }
+
+  placement = {
+    availability_zone = "us-east-2b"
+  }
+
+  tag_specifications = [
+    {
+      resource_type = "instance"
+      tags          = { WhatAmI = "Instance" }
+    },
+    {
+      resource_type = "volume"
+      tags          = { WhatAmI = "Volume" }
+    },
+    {
+      resource_type = "spot-instances-request"
+      tags          = { WhatAmI = "SpotInstanceRequest" }
+    }
+  ]
+
+  tags = [
+    {
+      key                 = "Environment"
+      value               = "dev"
+      propagate_at_launch = true
+    },
+    {
+      key                 = "Project"
+      value               = "megasecret"
+      propagate_at_launch = true
+    },
+  ]
+
+  tags_as_map = {
+    extra_tag1 = "extra_value1"
+    extra_tag2 = "extra_value2"
+  }
 }
+
 
 module "asg-db" {
     source = "terraform-aws-modules/autoscaling/aws"
@@ -305,9 +377,67 @@ module "asg-db" {
         triggers = ["tag"]
     }
 
-    ##DB launch template
-    use_lt = true
-    launch_template = "db-template"
+    iam_instance_profile_arn = aws_iam_instance_profile.ssm.arn
+    service_linked_role_arn   = aws_iam_service_linked_role.autoscaling.arn
+    target_group_arns=module.alb.target_group_arns
+
+    # Launch template
+  lt_name                = "lt-db-demo"
+  description            = "Launch template example"
+  update_default_version = true
+
+  use_lt    = true
+  create_lt = true
+
+  image_id          = "ami-094ab50c842d05719"
+  instance_type     = "t3.micro"
+  ebs_optimized     = true
+  enable_monitoring = true
+
+
+
+  metadata_options = {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 32
+  }
+
+  placement = {
+    availability_zone = "us-east-2b"
+  }
+
+  tag_specifications = [
+    {
+      resource_type = "instance"
+      tags          = { WhatAmI = "Instance" }
+    },
+    {
+      resource_type = "volume"
+      tags          = { WhatAmI = "Volume" }
+    },
+    {
+      resource_type = "spot-instances-request"
+      tags          = { WhatAmI = "SpotInstanceRequest" }
+    }
+  ]
+
+  tags = [
+    {
+      key                 = "Environment"
+      value               = "dev"
+      propagate_at_launch = true
+    },
+    {
+      key                 = "Project"
+      value               = "megasecret"
+      propagate_at_launch = true
+    },
+  ]
+
+  tags_as_map = {
+    extra_tag1 = "extra_value1"
+    extra_tag2 = "extra_value2"
+  }
 
 }
 
