@@ -209,237 +209,105 @@ resource "aws_iam_role" "ssm" {
   }
   EOT
 }
-
-# Launch template webserver
-
-/*module "lt_webserver" {
-  source = "terraform-aws-modules/autoscaling/aws"
-
-  # Autoscaling group
-  name = "lt_webserver"
-
-  vpc_zone_identifier = module.vpc-demo.private_subnets
-  min_size            = 2
-  max_size            = 3
-  desired_capacity    = 2
-  service_linked_role_arn   = aws_iam_service_linked_role.autoscaling.arn
-
-
-  # Launch template
-  use_lt    = true
-  create_lt = true
-
+ 
+resource "aws_launch_template" "template-app" {
+  name_prefix   = "demo-app"
   image_id      = "ami-0724aae182815ee48"
   instance_type = "t2.micro"
-  #user_data_base64  = base64encode(local.user_data)
 
-  security_groups = [module.security-group-app.security_group_id]
-  iam_instance_profile_arn = aws_iam_instance_profile.ssm.arn
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups = [module.security-group-app.security_group_id]
+  }
+
+  monitoring {
+    enabled = true
+  }
+  placement {
+    availability_zone = "us-east-2a"
+  }
+}
+
+resource "aws_autoscaling_group" "app-group" {
+  desired_capacity   = 2
+  max_size           = 3
+  min_size           = 2
+  vpc_zone_identifier = [module.vpc-demo.private_subnets[0], module.vpc-demo.private_subnets[1]]
   target_group_arns = module.alb.target_group_arns
+  launch_template {
+    id      = aws_launch_template.template-app.id
+    version = "$Latest"
+  }
+}
 
-}*/
-
-/*module "lt_db" {
-  source = "terraform-aws-modules/autoscaling/aws"
-
-  # Autoscaling group
-  name = "lt_webserver"
-
-  vpc_zone_identifier = module.vpc-demo.private_subnets
-  min_size            = 2
-  max_size            = 3
-  desired_capacity    = 2
-  service_linked_role_arn   = aws_iam_service_linked_role.autoscaling.arn
-
-
-  # Launch template
-  use_lt    = true
-  create_lt = true
-
+resource "aws_launch_template" "db_template" {
+  name_prefix   = "demo-db"
   image_id      = "ami-094ab50c842d05719"
   instance_type = "t2.micro"
-  #user_data_base64  = base64encode(local.user_data)
 
-  security_groups = [module.security_group_db.security_group_id]
-  iam_instance_profile_arn = aws_iam_instance_profile.ssm.arn
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups = [module.security_group_db.security_group_id]
+  }
+
+  monitoring {
+    enabled = true
+  }
+  placement {
+    availability_zone = "us-east-2a"
+  }
+
+}
+
+resource "aws_autoscaling_group" "db_group" {
+  desired_capacity = 2
+  max_size         = 3
+  min_size         = 2
+  vpc_zone_identifier = [module.vpc-demo.private_subnets[2], module.vpc-demo.private_subnets[2]]
   target_group_arns = module.alb.target_group_arns
-
-}*/
- 
-module "asg" {
-  source  = "terraform-aws-modules/autoscaling/aws"
-  version = "~> 4.0"
- 
-  # Autoscaling group
-  name = "demo-asg"
- 
-  min_size                  = 2
-  max_size                  = 3
-  desired_capacity          = 2
-  wait_for_capacity_timeout = 0
-  health_check_type         = "EC2"
-  vpc_zone_identifier       = [module.vpc-demo.private_subnets[0] , module.vpc-demo.private_subnets[1]]
- 
-  instance_refresh = {
-    strategy = "Rolling"
-    preferences = {
-      min_healthy_percentage = 50
-    }
-    triggers = ["tag"]
+  launch_template {
+    id = aws_launch_template.db_template.id
+    version="$Latest"
   }
- 
-  iam_instance_profile_arn = aws_iam_instance_profile.ssm.arn
-  service_linked_role_arn   = aws_iam_service_linked_role.autoscaling.arn
-  target_group_arns=module.alb.target_group_arns
+} 
 
-  # Launch template
-  lt_name                = "lt-demo"
-  description            = "Launch template example"
-  update_default_version = true
+######################################################################
+/*
+resource "aws_launch_template" "rdmx-lt" {
 
-  use_lt    = true
-  create_lt = true
-
-  image_id          = "ami-0724aae182815ee48"
-  instance_type     = "t3.micro"
-  ebs_optimized     = true
-  enable_monitoring = true
-
-
-
-
-
-
-  metadata_options = {
-    http_endpoint               = "enabled"
-    http_tokens                 = "required"
-    http_put_response_hop_limit = 32
+  name = "rdmx-lt"
+  image_id = "ami-078745025f5acf61e"
+  instance_type = "t2.micro"
+  
+  monitoring {
+    enabled = true
   }
 
-  placement = {
-    availability_zone = "us-east-2b"
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups = [module.application_security_group.security_group_id]
   }
 
-  tag_specifications = [
-    {
-      resource_type = "instance"
-      tags          = { WhatAmI = "Instance" }
-    },
-    {
-      resource_type = "volume"
-      tags          = { WhatAmI = "Volume" }
-    },
-    {
-      resource_type = "spot-instances-request"
-      tags          = { WhatAmI = "SpotInstanceRequest" }
-    }
-  ]
-
-  tags = [
-    {
-      key                 = "Environment"
-      value               = "dev"
-      propagate_at_launch = true
-    },
-    {
-      key                 = "Project"
-      value               = "megasecret"
-      propagate_at_launch = true
-    },
-  ]
-
-  tags_as_map = {
-    extra_tag1 = "extra_value1"
-    extra_tag2 = "extra_value2"
+  placement {
+    availability_zone = "us-east-2a"
   }
+  #vpc_security_group_ids = [module.application_security_group.security_group_id]
 }
 
 
-module "asg-db" {
-    source = "terraform-aws-modules/autoscaling/aws"
-    version = "~> 4.0"
-
-    ##db autoscaling group
-    name = "demo-asg"
-
-    min_size                  = 2
-    max_size                  = 3
-    desired_capacity          = 2
-    wait_for_capacity_timeout = 0
-    health_check_type         = "EC2"
-    vpc_zone_identifier = [module.vpc-demo.private_subnets[2], module.vpc-demo.private_subnets[3]]
-
-    instance_refresh = {
-        strategy = "Rolling"
-        preferences = {
-            min_healthy_percentage = 50
-        }
-        triggers = ["tag"]
-    }
-
-    iam_instance_profile_arn = aws_iam_instance_profile.ssm.arn
-    service_linked_role_arn   = aws_iam_service_linked_role.autoscaling.arn
-    target_group_arns=module.alb.target_group_arns
-
-    # Launch template
-  lt_name                = "lt-db-demo"
-  description            = "Launch template example"
-  update_default_version = true
-
-  use_lt    = true
-  create_lt = true
-
-  image_id          = "ami-094ab50c842d05719"
-  instance_type     = "t3.micro"
-  ebs_optimized     = true
-  enable_monitoring = true
-
-
-
-  metadata_options = {
-    http_endpoint               = "enabled"
-    http_tokens                 = "required"
-    http_put_response_hop_limit = 32
+resource "aws_autoscaling_group" "rdmx-asg" {
+  desired_capacity   = 2
+  max_size           = 4
+  min_size           = 2
+  vpc_zone_identifier = [module.vpc.private_subnets[0], module.vpc.private_subnets[1]]
+  target_group_arns = module.alb.target_group_arns
+  launch_template {
+    id      = aws_launch_template.rdmx-lt.id
+    version = "$Latest"
   }
-
-  placement = {
-    availability_zone = "us-east-2b"
-  }
-
-  tag_specifications = [
-    {
-      resource_type = "instance"
-      tags          = { WhatAmI = "Instance" }
-    },
-    {
-      resource_type = "volume"
-      tags          = { WhatAmI = "Volume" }
-    },
-    {
-      resource_type = "spot-instances-request"
-      tags          = { WhatAmI = "SpotInstanceRequest" }
-    }
-  ]
-
-  tags = [
-    {
-      key                 = "Environment"
-      value               = "dev"
-      propagate_at_launch = true
-    },
-    {
-      key                 = "Project"
-      value               = "megasecret"
-      propagate_at_launch = true
-    },
-  ]
-
-  tags_as_map = {
-    extra_tag1 = "extra_value1"
-    extra_tag2 = "extra_value2"
-  }
-
 }
+*/
+######################################################################
 
 resource "aws_sns_topic" "user_updates" {
 
@@ -458,7 +326,7 @@ module "metric_alarm_scale_out" {
   evaluation_periods  = 1
   threshold           = 70
   period              = 60
-  unit                = "Count"
+  #unit                = "Count"
 
   namespace   = "AWS/EC2"
 
@@ -467,7 +335,7 @@ module "metric_alarm_scale_out" {
   statistic   = "Average"
 
   dimensions = {
-      AutoscalingGroupName = module.asg.autoscaling_group_name
+      AutoscalingGroupName = aws_autoscaling_group.app-group.name
   }
 
   alarm_actions = [aws_sns_topic.user_updates.arn, aws_autoscaling_policy.scale-out-policy.arn]
@@ -487,7 +355,7 @@ module "metric_alarm_scale_in" {
   evaluation_periods  = 1
   threshold           = 20
   period              = 60
-  unit                = "Count"
+  #unit                = "Count"
 
 
   namespace   = "AWS/EC2"
@@ -497,7 +365,7 @@ module "metric_alarm_scale_in" {
   statistic   = "Average"
 
   dimensions = {
-      AutoscalingGroupName = module.asg.autoscaling_group_name
+      AutoscalingGroupName = aws_autoscaling_group.app-group.name
   }
 
   alarm_actions = [aws_sns_topic.user_updates.arn, aws_autoscaling_policy.scale-in-policy.arn]
@@ -526,8 +394,8 @@ resource "aws_autoscaling_policy" "scale-in-policy" {
   name                   = "scale-in-policy"
   scaling_adjustment     = -1
   adjustment_type        = "ChangeInCapacity"
-  cooldown               = 300
-  autoscaling_group_name = module.asg.autoscaling_group_name
+  cooldown               = 60
+  autoscaling_group_name = aws_autoscaling_group.app-group.name
 
 }
 
@@ -536,7 +404,7 @@ resource "aws_autoscaling_policy" "scale-out-policy" {
   name                   = "scale-out-policy"
   scaling_adjustment     = 1
   adjustment_type        = "ChangeInCapacity"
-  cooldown               = 300
-  autoscaling_group_name = module.asg.autoscaling_group_name
+  cooldown               = 60
+  autoscaling_group_name = aws_autoscaling_group.app-group.name
 
 }
