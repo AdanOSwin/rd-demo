@@ -6,7 +6,7 @@ pipeline {
                 sh "terraform init"
                 //sh "terraform destroy"
                 //sh 'terraform plan -out=demo.plan'
-                //sh 'terraform apply demo.plan'hhddddd
+                //sh 'terraform apply demo.plan'hhddddddddddd
             }
         }
         stage('second stage') {
