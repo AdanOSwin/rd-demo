@@ -67,14 +67,26 @@ module "security-group-app" {
       source_security_group_id = module.lb_security_group.security_group_id
     }
   ]
+
+
+  /*ingress_with_cidr_blocks = [
+    {
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      description = "ssh-connection"
+      cidr_blocks = "0.0.0.0/0"
+    }
+  ]*/
+
   number_of_computed_ingress_with_source_security_group_id = 1
   
-  /*ingress_with_cidr_blocks = [
+  ingress_with_cidr_blocks = [
     {
         rule        = "ssh-tcp"
         cidr_blocks = "0.0.0.0/0"
     }
-  ]*/
+  ]
 
   egress_with_cidr_blocks = [ 
     {
@@ -102,6 +114,7 @@ module "security_group_db" {
       source_security_group_id = module.security-group-app.security_group_id
     }
   ]
+
   number_of_computed_ingress_with_source_security_group_id = 1
  
   
@@ -378,6 +391,21 @@ resource "aws_sns_topic_subscription" "user_updates_sqs_target_2" {
 
 }
 
+resource "aws_sns_topic_subscription" "user_updates_sqs_target_3" {
+
+  topic_arn = aws_sns_topic.user_updates.arn
+  protocol  = "email"
+  endpoint  = "manuel_marquez@epam.com"
+
+}
+
+resource "aws_sns_topic_subscription" "user_updates_sqs_target_4" {
+
+  topic_arn = aws_sns_topic.user_updates.arn
+  protocol  = "email"
+  endpoint  = "abraham_andrade@epam.com"
+
+}
 
 resource "aws_autoscaling_policy" "scale-in-policy" {
 
