@@ -272,41 +272,31 @@ resource "aws_autoscaling_group" "db_group" {
 } 
 
 ######################################################################
-/*
-resource "aws_launch_template" "rdmx-lt" {
 
-  name = "rdmx-lt"
-  image_id = "ami-078745025f5acf61e"
-  instance_type = "t2.micro"
-  
-  monitoring {
-    enabled = true
-  }
-
-  network_interfaces {
-    associate_public_ip_address = true
-    security_groups = [module.application_security_group.security_group_id]
-  }
-
-  placement {
-    availability_zone = "us-east-2a"
-  }
-  #vpc_security_group_ids = [module.application_security_group.security_group_id]
-}
+resource "aws_route53_record" "domain" {
+  zone_id = var.hosted_zone_id
+  name    = var.hosted_zone
+  type    = "A"
 
 
-resource "aws_autoscaling_group" "rdmx-asg" {
-  desired_capacity   = 2
-  max_size           = 4
-  min_size           = 2
-  vpc_zone_identifier = [module.vpc.private_subnets[0], module.vpc.private_subnets[1]]
-  target_group_arns = module.alb.target_group_arns
-  launch_template {
-    id      = aws_launch_template.rdmx-lt.id
-    version = "$Latest"
+  alias {
+    name                   = module.alb.lb_dns_name
+    zone_id                = module.alb.lb_zone_id
+    evaluate_target_health = true
   }
 }
-*/
+
+variable hosted_zone{
+    default =  "ghostsite.be"
+    type = string
+}
+
+variable hosted_zone_id{
+
+    default = "Z072718426JRTNKESEYA8"
+    type = string
+
+}
 ######################################################################
 
 resource "aws_sns_topic" "user_updates" {
